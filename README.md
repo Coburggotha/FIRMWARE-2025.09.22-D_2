@@ -1,5 +1,5 @@
-# FIRMWARE-2025.09.22-D_2
-FIRMWARE-2025.09.22-D_2
+# FIRMWARE-2025.09.22_23-D_2_3
+FIRMWARE-2025.09.22_23-D_2_3
 - GNU : General Public License or GNU's Not UNIX
 - 운영 체제의 하나이자 컴퓨터 소프트웨어의 모음집
 
@@ -236,4 +236,130 @@ int main(void)
 }
 ```
 
+### 3. ADC_VR 가변저항 값을 ADC로 읽는 프로젝트
+- 프로젝트 생성
+- PA0 핀을 ADC 입력 핀으로 사용하기 위해 설정한다. MCU가 3.3V 동작이기 때문에 가변저항 VCC는 3.3V에 연결한다.
+<p align="center">
+ <img width="655" height="640" alt="image" src="https://github.com/user-attachments/assets/48efe612-f660-4afc-9ca2-15250156eaa0" />
+</p>
+<br>
+<br>
 
+- 기본 설정은 기본값을 유지 한다.
+<p align="center">
+<img width="602" height="373" alt="image" src="https://github.com/user-attachments/assets/c5e093f9-0e05-4d2d-b991-a02e579d90bf" />
+</p>
+<br>
+<br>
+
+- Rank 아래 Sampling Cycle을 13.5로 바꾸어준다.
+- Sampling Cycle은 입력전압을 확인하는 시간(샘플링시간)이다. 짧을 수록 빠르지만 정확성이 낮고 길수록 느리지만 정확성이 높다.
+<p align="center">
+<img width="600" height="418" alt="image" src="https://github.com/user-attachments/assets/dbdbbdcb-4808-4749-95d6-30bb5c22a1c5" />
+</p>
+<br>
+<br>
+
+- 샘플링 시간을 13.5로 바꿔서 클럭 이슈가 생기는데 이를 자동으로 해결할 것이냐는 문구가 뜬다. YES
+<p align="center">
+<img width="521" height="271" alt="image" src="https://github.com/user-attachments/assets/3523ed98-4aef-4f76-9b46-b49e6456b1d2" />
+</p>
+<br>
+<br>
+
+- 그래도 문제가 남아있다면 Resolve Clock Issues를 누른다.
+ <p align="center">
+<img width="1122" height="858" alt="image" src="https://github.com/user-attachments/assets/9122090f-bcf5-43f6-bb90-e11c03165ac5" />
+</p>
+<br>
+<br>
+
+-해결완료
+ <p align="center">
+<img width="1141" height="859" alt="image" src="https://github.com/user-attachments/assets/9bc9c83a-3fb4-4e62-b693-6e20db2628b0" />
+</p>
+<br>
+<br>
+
+- 우선 결과를 시리얼로 통신하여 문자로 확인하기 위해 printf를 위한 헤더파일 추가와 코드를 추가한다.
+```c
+/* USER CODE BEGIN Includes */
+#include <stdio.h>
+/* USER CODE END Includes */
+
+/* USER CODE BEGIN 0 */
+#ifdef __GNUC__
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROT0TYPE int fputc(int ch, FILE *f)
+#endif
+PUTCHAR_PROTOTYPE {
+	if (ch == '\n')
+		HAL_UART_Transmit(&huart2, (uint8_t*) "\r", 1, 0xFFFF);
+	HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF);
+
+	return ch;
+}
+/* USER CODE END 0 */
+
+```
+<br>
+<br>
+
+- 데이터를 받기 위한 변수를 선언한다.
+  ```c
+  /* USER CODE BEGIN PV */
+uint32_t last_adc_value = 0;  // 32비트 부호 없는 정수 last_adc_value를 선언하고 0으로 초기화
+
+float voltage = 0.0;         // 부동소수 voltage를 선언하고 0.0으로 초기화
+
+/* USER CODE END PV */
+```
+<br>
+<br>
+
+- ADC 켈리브레이션 ADC를 초기화 시키는 코드 작성
+```c
+/* USER CODE BEGIN 2 */
+	if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK) {
+
+		Error_Handler();
+	}
+	/* USER CODE END 2 */
+
+```
+<br>
+<br>
+
+- 4515
+  ```c
+  /* USER CODE BEGIN WHILE */
+	while (1) {
+
+		uint32_t current_adc_value;
+
+		HAL_ADC_Start(&hadc1);
+
+		if (HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK) {
+
+			current_adc_value = HAL_ADC_GetValue(&hadc1);
+			voltage = 3.3*current_adc_value/4095;
+
+			if (abs(current_adc_value - last_adc_value) > 10) {
+				printf("Potentiometer ADC Value: %lu\r\n", current_adc_value);
+				printf("Potentiometer voltage: %.2f\r\n", voltage);
+				last_adc_value = current_adc_value;
+			}
+
+		}
+		/* USER CODE END WHILE */
+		HAL_Delay(500);
+		/* USER CODE BEGIN 3 */
+	}
+  ```
+<br>
+<br>
+
+
+
+  
